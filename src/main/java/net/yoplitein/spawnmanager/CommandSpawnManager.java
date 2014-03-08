@@ -15,7 +15,7 @@ import com.google.common.collect.Lists;
 public class CommandSpawnManager implements ICommand
 {
 	static final String CMD_WHITELIST = "whitelist";
-	static final String CMD_CFG = "configure";
+	static final String CMD_MAPPINGS = "mappings";
 	static final String CMD_TOGGLE = "toggle";
 	static final String CMD_SAVE = "save";
 	static final String name = "spawnmanager";
@@ -42,9 +42,9 @@ public class CommandSpawnManager implements ICommand
 	@Override
 	public String getCommandUsage(ICommandSender sender)
 	{
-		return name + " whitelist <add|remove> <username>\n" +
-			   name + " configure <fromID|toID> <dimension ID>\n" +
-			   name + " toggle <on|off>\n" +
+		return name + " whitelist <add|remove|list> [username]\n" +
+			   name + " mappings <add|remove|list> [mapping] (e.g. add 0:1 to map the Overworld to the End)\n" +
+			   name + " toggle [on|off]\n" +
 			   name + " save";
 	}
 	
@@ -65,18 +65,33 @@ public class CommandSpawnManager implements ICommand
 			{
 				if     (cmd.equals(CMD_WHITELIST))
 				{
-					String addOrRemove = args[1];
-					String username = args[2];
+					String subcmd = args[1];
 					Property whitelist = config.cfg.get("main", "whitelist", new String[0]);
 					List<String> list = new ArrayList<String>(Arrays.asList(whitelist.getStringList()));
 					
-					if     (addOrRemove.equals("add"))
+					if     (subcmd.equals("add"))
 					{
-						list.add(username);
+						list.add(args[2]);
+						sendMessage(sender, "Added " + args[2]);
 					}
-					else if(addOrRemove.equals("remove"))
+					else if(subcmd.equals("remove"))
 					{
-						list.remove(username);
+						list.remove(args[2]);
+						sendMessage(sender, "Removed " + args[2]);
+					}
+					else if(subcmd.equals("list"))
+					{
+						String result = "";
+						
+						for(String username: list)
+							result += ", " + username;
+						
+						if(result.equals(""))
+							result = "  No whitelisted players";
+						
+						sendMessage(sender, result.substring(2));
+						
+						return;
 					}
 					else
 					{
@@ -87,46 +102,81 @@ public class CommandSpawnManager implements ICommand
 					
 					whitelist.set((String[])list.toArray(new String[list.size()]));
 				}
-				else if(cmd.equals(CMD_CFG))
+				else if(cmd.equals(CMD_MAPPINGS))
 				{
-					String option = args[1];
-					String value = args[2];
+					String subcmd = args[1];
+					Property mappings = config.cfg.get("main", "mappings", new String[0]);
+					List<String> list = new ArrayList<String>(Arrays.asList(mappings.getStringList()));
 					
-					try
+					if     (subcmd.equals("add"))
 					{
-						if     (option.equals("fromID"))
+						if(isValidMapping(args[2]))
 						{
-							config.cfg.get("main", "fromDimension", 0).set(Integer.parseInt(value));
+							list.add(args[2]);
+							sendMessage(sender, "Added " + args[2]);
 						}
-						else if(option.equals("toID"))
+						else
+							sendMessage(sender, args[2] + " is not a valid mapping (see /help " + name + ")");
+					}
+					else if(subcmd.equals("remove"))
+					{
+						list.remove(args[2]);
+						sendMessage(sender, "Removed " + args[2]);
+					}
+					else if(subcmd.equals("list"))
+					{
+						String result = "";
+						
+						for(String mapping: list)
+							result += ", " + mapping;
+						
+						if(result.equals(""))
+							result = "  No mappings";
+						
+						sendMessage(sender, result.substring(2));
+						
+						return;
+					}
+					else
+					{
+						sendUsage(sender);
+						
+						return;
+					}
+					
+					mappings.set((String[])list.toArray(new String[list.size()]));
+				}
+				else if(cmd.equals(CMD_TOGGLE))
+				{
+					if(args.length > 1)
+					{
+						String option = args[1];
+						
+						if     (option.equals("on"))
 						{
-							config.cfg.get("main", "toDimension", 0).set(Integer.parseInt(value));
+							config.cfg.get("main", "enabled", true).set(true);
+							sendMessage(sender, "Toggled on");
+						}
+						else if(option.equals("off"))
+						{
+							config.cfg.get("main", "enabled", true).set(false);
+							sendMessage(sender, "Toggled off");
 						}
 						else
 							sendUsage(sender);
 					}
-					catch(NumberFormatException err)
-					{
-						sendMsg(sender, value + " is not a number");
-					}
-				}
-				else if(cmd.equals(CMD_TOGGLE))
-				{
-					String option = args[1];
-					
-					if     (option.equals("on"))
-					{
-						config.cfg.get("main", "enabled", true).set(true);
-					}
-					else if(option.equals("off"))
-					{
-						config.cfg.get("main", "enabled", true).set(false);
-					}
 					else
-						sendUsage(sender);
+					{
+						if(config.cfg.get("main", "enabled", true).getBoolean(true))
+							sendMessage(sender, "Currently on");
+						else
+							sendMessage(sender, "Currently off");
+					}
 				}
 				else if(cmd.equals(CMD_SAVE))
 					config.cfg.save();
+				else
+					sendUsage(sender);
 			}
 			catch(IndexOutOfBoundsException err)
 			{
@@ -154,9 +204,9 @@ public class CommandSpawnManager implements ICommand
 			if     (args.length == 2)
 			{
 				if     (cmd.equals(CMD_WHITELIST))
-					return Lists.newArrayList("add", "remove");
-				else if(cmd.equals(CMD_CFG))
-					return Lists.newArrayList("fromID", "toID");
+					return Lists.newArrayList("add", "remove", "list");
+				else if(cmd.equals(CMD_MAPPINGS))
+					return Lists.newArrayList("add", "remove", "list");
 				else if(cmd.equals(CMD_TOGGLE))
 					return Lists.newArrayList("on", "off");
 			}
@@ -167,7 +217,7 @@ public class CommandSpawnManager implements ICommand
 				return Arrays.asList(usernames);
 			}
 			else if(args.length == 1)
-				return Lists.newArrayList(CMD_WHITELIST, CMD_CFG, CMD_TOGGLE, CMD_SAVE);
+				return Lists.newArrayList(CMD_WHITELIST, CMD_MAPPINGS, CMD_TOGGLE, CMD_SAVE);
 		}
 		
 		return Lists.newArrayList();
@@ -177,28 +227,33 @@ public class CommandSpawnManager implements ICommand
 	@Override
 	public boolean isUsernameIndex(String[] args, int index)
 	{
-		/*for(String item: args)
-			System.out.print(item + " ");
-		
-		System.out.println(" " + index);
-		
-		if(args.length == 3 && args[0] == CMD_WHITELIST)
-		{
-			System.out.println("is whitelist player arg");
-			return true;
-		}
-		
-		System.out.println("is not");*/
 		return false;
 	}
 	
-	void sendMsg(ICommandSender sender, String message)
+	void sendMessage(ICommandSender sender, String message)
 	{
 		sender.sendChatToPlayer(ChatMessageComponent.createFromText(message));
 	}
 	
 	void sendUsage(ICommandSender sender)
 	{
-		sendMsg(sender, getCommandUsage(sender));
+		sendMessage(sender, getCommandUsage(sender));
+	}
+	
+	boolean isValidMapping(String mapping)
+	{
+		try
+		{
+			String[] split = mapping.split(":");
+			
+			Integer.parseInt(split[0]);
+			Integer.parseInt(split[1]);
+			
+			return true;
+		}
+		catch(Exception err)
+		{
+			return false;
+		}
 	}
 }

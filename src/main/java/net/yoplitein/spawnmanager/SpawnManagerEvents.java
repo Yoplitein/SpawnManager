@@ -28,6 +28,9 @@ public class SpawnManagerEvents
 	@ForgeSubscribe
 	public void entJoin(EntityJoinWorldEvent event)
 	{
+		if(!config.cfg.get("main", "enabled", true).getBoolean(true))
+			return;
+		
 		try
 		{
 			EntityPlayer ply = (EntityPlayer)event.entity;
@@ -35,8 +38,11 @@ public class SpawnManagerEvents
 			if(Arrays.asList(config.getWhitelist()).contains(ply.getDisplayName()))
 				return;
 			
-			if(event.world.provider.dimensionId == config.get("fromDimension", 0))
-				delayer.addDelay(ply, config.get("toDimension", -1));
+			int source = event.world.provider.dimensionId;
+			int destination = config.getMapping(source);
+			
+			if(source != destination)
+				delayer.addDelay(ply, destination);
 		}
 		catch(ClassCastException err)
 		{
