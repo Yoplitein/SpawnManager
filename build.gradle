@@ -1,0 +1,60 @@
+buildscript
+{
+    repositories
+    {
+        mavenCentral()
+        maven
+        {
+            name = "forge"
+            url = "http://files.minecraftforge.net/maven"
+        }
+    }
+    dependencies
+    {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.0-SNAPSHOT'
+    }
+}
+
+apply plugin: 'forge'
+
+ext.configFile = file "build.properties"
+
+configFile.withReader
+{
+    def properties = new Properties()
+    properties.load(it)
+    ext.config = new ConfigSlurper().parse properties
+}
+
+group = config.mod_group
+version = config.mod_version
+archivesBaseName = config.mod_name + "-" + config.minecraft_version
+
+minecraft
+{
+	version = config.minecraft_version + "-" + config.forge_version
+    
+    if(file("../run").exists())
+    {
+        assetDir = "../run/assets"
+    }
+    else
+    {
+        assetDir = "assets"
+    }
+}
+
+processResources
+{
+    from(sourceSets.main.resources.srcDirs)
+    {
+        include 'mcmod/info'
+        
+        expand 'version':project.version, 'mcversion':project.minecraft.version
+    }
+    
+    from(sourceSets.main.resources.srcDirs)
+    {
+        exclude 'mcmod.info'
+    }
+}
